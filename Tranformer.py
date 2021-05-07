@@ -246,8 +246,8 @@ class Transformer(nn.Module):
 
 def run_transformer_test():
     t = Transformer()
-    src = torch.rand(64, 16, 512)
-    tgt = torch.rand(64, 16, 512)
+    src = torch.rand(10, 10, 512)
+    tgt = torch.rand(10, 10, 512)
     out = t(src, tgt)
     print(out.shape)
 
