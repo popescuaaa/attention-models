@@ -148,7 +148,7 @@ class EncodingLayer(nn.Module):
             :return: feature vector for input
         """
         src = self.attention(src, src, src)
-        return self.feed_forward(src)
+        return self.ff(src)
 
 
 class Encoder(nn.Module):
@@ -160,7 +160,7 @@ class Encoder(nn.Module):
         ])
 
     def forward(self, src: Tensor) -> Tensor:
-        seq_len, dimension = src.shape[0], src.shape[1]
+        seq_len, dimension = src.size(1), src.size(2)
         src += positional_encoding(seq_len, dimension)
         for layer in self.layers:
             src = layer(src)
@@ -206,7 +206,7 @@ class Decoder(nn.Module):
         self.linear = nn.Linear(dim_model, dim_model)
 
     def forward(self, target: Tensor, memory: Tensor) -> Tensor:
-        seq_len, dimension = target.shape[0], target.size[1]
+        seq_len, dimension = target.size(1), target.size(2)
         target += positional_encoding(seq_len, dimension)
         for layer in self.layers:
             target = layer(target, memory)
@@ -214,8 +214,47 @@ class Decoder(nn.Module):
         return torch.softmax(self.linear(target), dim=-1)
 
 
+class Transformer(nn.Module):
+    def __init__(self,
+                 num_encoder_layers: int = 6,
+                 num_decoder_layers: int = 6,
+                 dim_model: int = 512,
+                 num_heads: int = 6,
+                 dim_ff: int = 2048,
+                 dropout: float = 0.1):
+        super(Transformer, self).__init__()
+
+        self.encoder = Encoder(
+            num_layers=num_encoder_layers,
+            dim_model=dim_model,
+            num_heads=num_heads,
+            dim_ff=dim_ff,
+            dropout=dropout,
+        )
+
+        self.decoder = Decoder(
+            num_layers=num_decoder_layers,
+            dim_model=dim_model,
+            num_heads=num_heads,
+            dim_ff=dim_ff,
+            dropout=dropout,
+        )
+
+    def forward(self, src: Tensor, target: Tensor) -> Tensor:
+        return self.decoder(target, self.encoder(src))
+
+
+def run_transformer_test():
+    t = Transformer()
+    src = torch.rand(64, 16, 512)
+    tgt = torch.rand(64, 16, 512)
+    out = t(src, tgt)
+    print(out.shape)
+
+
 if __name__ == '__main__':
     run_scaled_dot_product_test()
     run_attention_head_test()
     run_multi_head_attention_test()
     run_positional_encoding_test()
+    run_transformer_test()
