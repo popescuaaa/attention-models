@@ -84,6 +84,89 @@ def run_positional_encoding_test():
         'The positional encoding failed to produce data with corret dimension on output'
 
 
+'''
+
+ Encoder decoder architecture
+ encoder: process input and returns a feature vector
+ decoder: process the target sequence and incorporates info from encoder
+ 
+ Each of the layers in our encoder and decoder contains a fully connected feed-forward network, which 
+ consists of two linear transformations with a ReLU activation in between. 
+ The dimensionality of input and output is 512, and the inner-layer has dimensionality 2048.
+ 
+'''
+
+
+def feed_forward(dim_ff: int = 2048, dim_input: int = 512) -> nn.Module:
+    return nn.Sequential(
+        nn.Linear(dim_input, dim_ff),
+        nn.ReLU(),
+        nn.Linear(dim_ff, dim_input),
+    )
+
+
+'''
+
+The output of each sub-layer is LayerNorm(x + Sublayer(x)), where Sublayer(x) is the 
+function implemented by the sub-layer itself. … We apply dropout to the output of 
+each sub-layer, before it is added to the sub-layer input and normalized.
+
+'''
+
+
+class Residual(nn.Module):
+    def __init__(self, sublayer: nn.Module, dimension: int, dropout: float = 0.1):
+        super(Residual, self).__init__()
+        self.sublayer = sublayer
+        self.norm = nn.LayerNorm(dimension)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, *tensors: Tensor) -> Tensor:
+        # Assume that the "value" tensor is given last, so we can compute the
+        # residual.  This matches the signature of 'MultiHeadAttention'.
+        return self.norm(tensors[-1] + self.dropout(self.sublayer(*tensors)))
+
+
+class EncodingLayer(nn.Module):
+    def __init__(self, dim_ff: int, dim_model: int, num_heads: int, dropout: float):
+        super(EncodingLayer, self).__init__()
+        dim_k = dim_v = dim_model // num_heads
+        self.attention = Residual(
+            MultiHeadAttention(num_heads=num_heads, dim_input=dim_model, dim_k=dim_k, dim_v=dim_v),
+            dimension=dim_model,
+            dropout=dropout
+        )
+        self.ff = Residual(
+            feed_forward(dim_input=dim_model, dim_ff=dim_ff),
+            dimension=dim_model,
+            dropout=dropout
+        )
+
+    def forward(self, src: Tensor) -> Tensor:
+        """
+            :param src:
+            :return: feature vector for input
+        """
+        src = self.attention(src, src, src)
+        return self.feed_forward(src)
+
+
+class Encoder(nn.Module):
+    def __init__(self, dim_ff: int, dim_model: int, num_heads: int, dropout: float, num_layers: int):
+        super(Encoder, self).__init__()
+        self.layers = nn.ModuleList([
+            EncodingLayer(dim_ff=dim_ff, dim_model=dim_model, num_heads=num_heads, dropout=dropout)
+            for _ in range(num_layers)
+        ])
+
+    def forward(self, src: Tensor) -> Tensor:
+        seq_len, dimension = src.shape[0], src.shape[1]
+        src += positional_encoding(seq_len, dimension)
+        for layer in self.layers:
+            src = layer(src)
+        return src
+
+
 if __name__ == '__main__':
     run_scaled_dot_product_test()
     run_attention_head_test()
