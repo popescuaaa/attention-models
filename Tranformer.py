@@ -197,12 +197,21 @@ class DecoderLayer(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self):
+    def __init__(self, dim_ff: int, dim_model: int, num_heads: int, dropout: float, num_layers: int):
         super(Decoder, self).__init__()
-        pass
+        self.layers = nn.ModuleList([
+            DecoderLayer(dim_model=dim_model, num_heads=num_heads, dim_ff=dim_ff, dropout=dropout)
+            for _ in range(num_layers)
+        ])
+        self.linear = nn.Linear(dim_model, dim_model)
 
-    def forward(self):
-        pass
+    def forward(self, target: Tensor, memory: Tensor) -> Tensor:
+        seq_len, dimension = target.shape[0], target.size[1]
+        target += positional_encoding(seq_len, dimension)
+        for layer in self.layers:
+            target = layer(target, memory)
+
+        return torch.softmax(self.linear(target), dim=-1)
 
 
 if __name__ == '__main__':
