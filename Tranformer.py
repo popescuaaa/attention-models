@@ -167,6 +167,44 @@ class Encoder(nn.Module):
         return src
 
 
+class DecoderLayer(nn.Module):
+    def __init__(self, dim_ff: int, dim_model: int, num_heads: int, dropout: float):
+        super(DecoderLayer, self).__init__()
+        dim_k = dim_v = dim_model // num_heads
+
+        self.attention_1 = Residual(
+            MultiHeadAttention(num_heads=num_heads, dim_input=dim_model, dim_k=dim_k, dim_v=dim_v),
+            dimension=dim_model,
+            dropout=dropout,
+        )
+
+        self.attention_2 = Residual(
+            MultiHeadAttention(num_heads=num_heads, dim_input=dim_model, dim_k=dim_k, dim_v=dim_v),
+            dimension=dim_model,
+            dropout=dropout,
+        )
+
+        self.ff = Residual(
+            feed_forward(dim_input=dim_model, dim_ff=dim_ff),
+            dimension=dim_model,
+            dropout=dropout,
+        )
+
+    def forward(self, target: Tensor, memory: Tensor) -> Tensor:
+        target = self.attention_1(target, target, target)
+        target = self.attention_2(memory, memory, target)
+        return self.ff(target)
+
+
+class Decoder(nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
+        pass
+
+    def forward(self):
+        pass
+
+
 if __name__ == '__main__':
     run_scaled_dot_product_test()
     run_attention_head_test()
