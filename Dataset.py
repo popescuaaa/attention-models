@@ -12,6 +12,7 @@ stocks_map = {
     'AMZN': 4
 }
 
+
 class Stocks(Dataset):
     def __init__(self):
         super(Stocks, self).__init__()
@@ -44,4 +45,4 @@ if __name__ == '__main__':
     ds = Stocks()
     dl = DataLoader(ds, batch_size=5, shuffle=True, num_workers=2)
     for i, e in enumerate(dl):
-        print(type(e))
+        print(e.shape)
